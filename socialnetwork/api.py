@@ -119,16 +119,26 @@ def submit_post(
 
     # classify the content into expertise areas:
     # only publish the post if none of the expertise areas contains bullshit:
+
     _at_least_one_expertise_area_contains_bullshit, _expertise_areas = (
-        post.determine_expertise_areas_and_truth_ratings()
+        post.determine_expertise_areas_and_truth_ratings()                     #  _expertise_area is  relevant area
     )
-    post.published = not _at_least_one_expertise_area_contains_bullshit
+    post.published = not _at_least_one_expertise_area_contains_bullshit        # if there is bullshit ,do not publish
 
     redirect_to_logout = False
 
 
     #########################
-    # add your code here
+    # add your code here        task1 if  relevant fame low , can not publish
+    for item in _expertise_areas:
+        area = item["expertise_area"]   #返回的是一个dict 先取出 area
+        fame_entry = Fame.objects.filter(user=user, expertise_area=area).first()
+        if fame_entry is not None:
+            if fame_entry.fame_level.numeric_value < 0:
+                post.published =  False
+                break
+
+
     #########################
 
     post.save()
