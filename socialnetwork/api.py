@@ -219,9 +219,25 @@ def bullshitters():
     users with the lowest fame are shown first, in case there is a tie, within that tie sort by date_joined
     (most recent first). Note that expertise areas with no expert may be omitted.
     """
-    pass
-    #########################
-    # add your code here
+    #########################    area -> [ {user: user1, famel_level_numeric: -100) } ,    {},      ]
+    result =  {}
+    neg_fame = Fame.objects.filter(
+        fame_level__numeric_value__lt = 0
+    ).order_by("fame_level__numeric_value",
+               "-user__date_joined")
+    for fame in neg_fame:
+        area = fame.expertise_area
+
+        if  area not in result:
+            result[area] = []
+        result[area].append(
+            {
+                "user": fame.user,
+                "fame_level_numeric" : fame.fame_level.numeric_value,
+            }
+        )
+    return result
+
     #########################
 
 
