@@ -27,10 +27,17 @@ def timeline(user: SocialNetworkUsers, start: int = 0, end: int = None, publishe
         # 2. the user is a member of the community
         # 3. the post contains the community’s expertise area
         # 4. the post is published or the user is the author
-
-        pass
         #########################
-        # add your code here
+        user_communities = user.communities.all()   # 当前 user 是 community member 条件2
+
+        posts = Posts.objects.filter(
+            author__communities__in=user_communities, # 1
+            expertise_area_and_truth_ratings__in=user_communities, #3
+            author__communities=F("expertise_area_and_truth_ratings"), # same comm
+        ).filter(
+                Q(published=published) | Q(author=user) # 4
+            ).distinct().order_by("-submitted")
+
         #########################
 
     else:
@@ -154,10 +161,17 @@ def submit_post(
                 try:
                     fame_entry.fame_level =  fame_entry.fame_level.get_next_lower_fame_level()
                     fame_entry.save()
+
+                    ### task4
+                    super_pro = FameLevels.objects.get(name="Super Pro")
+                    if fame_entry.fame_level.numeric_value < super_pro.numeric_value :
+                        user.communities.remove(area)
+                    ### task4
                 except ValueError: # 最低 ban user  把他的所有帖子变成unpublished
                     user.is_active = False
                     user.save()
                     Posts.objects.filter(author=user).update(published=False)
+                    post.published = False
                     redirect_to_logout = True
 
     #########################
@@ -248,18 +262,18 @@ def join_community(user: SocialNetworkUsers, community: ExpertiseAreas):
     """Join a specified community. Note that this method does not check whether the user is eligible for joining the
     community.
     """
-    pass
+
     #########################
-    # add your code here
+    user.communities.add(community)
     #########################
 
 
 
 def leave_community(user: SocialNetworkUsers, community: ExpertiseAreas):
     """Leave a specified community."""
-    pass
+
     #########################
-    # add your code here
+    user.communities.remove(community)
     #########################
 
 
