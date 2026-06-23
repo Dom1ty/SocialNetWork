@@ -133,11 +133,32 @@ def submit_post(
     for item in _expertise_areas:
         area = item["expertise_area"]   #返回的是一个dict 先取出 area
         fame_entry = Fame.objects.filter(user=user, expertise_area=area).first()
-        if fame_entry is not None:
-            if fame_entry.fame_level.numeric_value < 0:
-                post.published =  False
-                break
 
+        rating = item["truth_rating"]
+        #task1
+        if fame_entry is not None:
+            if fame_entry.fame_level.numeric_value < 0: # 当前领域的fame < 0 不能发布
+                post.published =  False
+
+        #task2 check 这条post 的truth rating， if  negative 降级
+        if rating  is not None and rating.numeric_value < 0:
+            if fame_entry is None:
+                #turn TO confuser
+                Confuser = FameLevels.objects.get(name = "Confuser")
+                Fame.objects.create(user=user,
+                                    expertise_area=area,
+                                    fame_level=Confuser
+                                    )
+            else:
+                #lower rank
+                try:
+                    fame_entry.fame_level =  fame_entry.fame_level.get_next_lower_fame_level()
+                    fame_entry.save()
+                except ValueError: # 最低 ban user  把他的所有帖子变成unpublished
+                    user.is_active = False
+                    user.save()
+                    Posts.objects.filter(author=user).update(published=False)
+                    redirect_to_logout = True
 
     #########################
 
