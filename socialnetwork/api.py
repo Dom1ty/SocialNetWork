@@ -1,4 +1,5 @@
 from django.db.models import Q, Exists, OuterRef, When, IntegerField, FloatField, Count, ExpressionWrapper, Case, Value, F, Prefetch
+from django.template.defaultfilters import first
 
 from fame.models import Fame, FameLevels, FameUsers, ExpertiseAreas
 from socialnetwork.models import Posts, SocialNetworkUsers
@@ -20,7 +21,7 @@ def _get_social_network_user(user) -> SocialNetworkUsers:
 def timeline(user: SocialNetworkUsers, start: int = 0, end: int = None, published=True, community_mode=False):
     """Get the timeline of the user. Assumes that the user is authenticated."""
 
-    if community_mode:
+
         # T4
         # in community mode, posts of communities are displayed if ALL of the following criteria are met:
         # 1. the author of the post is a member of the community
@@ -28,6 +29,7 @@ def timeline(user: SocialNetworkUsers, start: int = 0, end: int = None, publishe
         # 3. the post contains the community’s expertise area
         # 4. the post is published or the user is the author
         #########################
+    if community_mode:
         user_communities = user.communities.all()   # 当前 user 是 community member 条件2
 
         posts = Posts.objects.filter(
@@ -233,7 +235,7 @@ def bullshitters():
     users with the lowest fame are shown first, in case there is a tie, within that tie sort by date_joined
     (most recent first). Note that expertise areas with no expert may be omitted.
     """
-    #########################    area -> [ {user: user1, famel_level_numeric: -100) } ,    {},      ]
+    #########################    area1 -> [ {user: user1, famel_level_numeric: -100) } ,    {user2,-200},      ]  area 2->  [ {user: user1, famel_level_numeric: -200) } ,    {user2,-200},      ]
     result =  {}
     neg_fame = Fame.objects.filter(
         fame_level__numeric_value__lt = 0
@@ -282,3 +284,40 @@ def similar_users(user: SocialNetworkUsers):
     """Compute the similarity of user with all other users. The method returns a QuerySet of FameUsers annotated
     with an additional field 'similarity'. Sort the result in descending order according to 'similarity', in case
     there is a tie, within that tie sort by date_joined (most recent first)"""
+                            ##                                  遍历其他用户       遍历我的 fame 领域 如果 对方也有这个领域 且 score 不超过 100 ，加1
+
+    my_fames = Fame.objects.filter(user=user)
+    if not my_fames.exists():
+        return FameUsers.objects.none()
+    scores = {} # diction to store the simlarity
+    #遍历其他用户除了自己
+    for other_user in FameUsers.objects.exclude(id=user.id):
+
+        similar_count = 0
+        # 遍历我的fame
+        for my_fame in my_fames:
+            other_fame = Fame.objects.filter(
+                user=other_user,
+                expertise_area = my_fame.expertise_area,
+                ).first()
+            if other_fame is None:    # 没有结果就不计算fame
+                continue
+            if abs(my_fame.fame_level.numeric_value - other_fame.fame_level.numeric_value) <= 100:
+                similar_count += 1
+
+        similarity = similar_count / my_fames.count()
+        if similarity > 0:
+            scores[other_user.id] = similarity
+
+    #转化成querySet储存    py dict ---> QuerySet
+    whens = []
+    for user_id, score in scores.items():
+        whens.append(When(id=user_id, then=Value(score)))
+    return FameUsers.objects.filter(
+        id__in=scores.keys()
+    ).annotate(    # annotate是添加临时字段的意思
+        similarity=Case(
+            *whens,
+            output_field=FloatField(),
+        )
+    ).order_by("-similarity", "-date_joined") # 从小到大 从新到旧

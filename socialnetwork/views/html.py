@@ -74,7 +74,14 @@ def unfollow(request):
 @require_http_methods(["GET"])
 @login_required
 def bullshitters(request):
-    raise NotImplementedError("Not implemented yet")
+    ##task6
+    data = api.bullshitters()
+
+    context = {
+        "bullshitters" : data,
+    }
+    return render(request, "bullshitters.html", context=context)
+    
 
 @require_http_methods(["POST"])
 @login_required

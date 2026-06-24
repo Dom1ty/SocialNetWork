@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block body %}
+    <h3>Bullshitters</h3>
+
+    {% for area, users in bullshitters.items %}
+        <h4>{{ area.label }}</h4>
+
+        {% for entry in users %}
+            <div>
+                <a href="/fame/html/fame?userid={{ entry.user.id }}">
+                    {{ entry.user.first_name }} {{ entry.user.last_name }}
+                </a>
+                {{ entry.user.email }}
+                {{ entry.fame_level_numeric }}
+            </div>
+        {% endfor %}
+    {% endfor %}
+{% endblock %}
